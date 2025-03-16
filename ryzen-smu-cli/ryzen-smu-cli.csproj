@@ -9,6 +9,26 @@
     <Version>0.0.1</Version>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- Set build configuration to Release by default -->
+    <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
+  
+    <!-- Enable single-file publishing -->
+    <PublishSingleFile>true</PublishSingleFile>
+  
+    <!-- Target runtime -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+  
+    <!-- Disable self-contained deployment -->
+    <SelfContained>false</SelfContained>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+  </PropertyGroup>
+
+
   <ItemGroup>
     <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
     <!-- Included for the ZenStates-Core submodule...-->
