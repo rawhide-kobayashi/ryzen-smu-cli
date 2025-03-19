@@ -14,25 +14,27 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <!-- Set build configuration to Release by default -->
     <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
-  
-    <!-- Enable single-file publishing -->
     <PublishSingleFile>true</PublishSingleFile>
-  
-    <!-- Target runtime -->
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-  
-    <!-- Disable self-contained deployment -->
     <SelfContained>false</SelfContained>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
   </PropertyGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="include\ZenStates-Core\External\WinRing0\WinRing0.sys">
+        <LogicalName>ZenStates.Core.WinRing0.sys</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="include\ZenStates-Core\External\WinRing0\WinRing0x64.sys">
+        <LogicalName>ZenStates.Core.WinRing0x64.sys</LogicalName>
+    </EmbeddedResource>
+</ItemGroup>
+
 
   <ItemGroup>
     <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
-    <!-- Included for the ZenStates-Core submodule...-->
     <PackageReference Include="System.Management" Version="6.0.0" />
+    <!-- Included for the ZenStates-Core submodule...-->
     <PackageReference Include="System.ServiceProcess.ServiceController" Version="6.0.0" />
     <PackageReference Include="System.IO.FileSystem.AccessControl" Version="5.0.0" />
     <PackageReference Include="System.Threading.AccessControl" Version="6.0.0" />
