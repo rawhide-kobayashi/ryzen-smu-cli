@@ -2,7 +2,9 @@
 
 A CLI tool for the ZenStates SMU library. See [ZenStates-Core](https://github.com/irusanov/ZenStates-Core) for compatibility.
 
-All credit to [ZenStates-Core](https://github.com/irusanov/ZenStates-Core) for core functionality and [SMUDebugTool](https://github.com/irusanov/SMUDebugTool) for usage examples.
+Requires [.NET Framework 8](https://dotnet.microsoft.com/en-us/download/dotnet/8.0).
+
+All credit to irusanov, who wrote [ZenStates-Core](https://github.com/irusanov/ZenStates-Core) on which this depends for all meaningful functionality, and [SMUDebugTool](https://github.com/irusanov/SMUDebugTool) for usage examples.
 
 Usage:
 ```
@@ -24,3 +26,6 @@ Options:
   --version                        Show version information
   -?, -h, --help                   Show help and usage information
 ```
+
+# Note about compatiblity with 4/6/12-core skus
+I just realized that this won't work with these skus. ZenStates-Core does not implicitly compensate for the disabled cores when applying per-core PBO offsets. I need to update this to get the disabled core map and compensate for it myself.
