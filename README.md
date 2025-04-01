@@ -16,16 +16,13 @@ Usage:
   ryzen-smu-cli [options]
 
 Options:
-  --offset <offset>                Specify a zero-indexed core, or list of cores, and their PBO offset(s), in a fashion
-                                   similar to taskset. e.g. 0:-10,1:5,2:-20,14:-25
-  --disable-cores <disable-cores>  Specify a zero-indexed list of cores to disable. e.g. 0,1,4,7,12,15. This setting
-                                   does not take into account any current core disablement. All cores you wish to
-                                   disable must be specified. Any that are unspecified will be enabled. This option
-                                   requires a reboot.
-  --enable-all-cores               Enable all cores.
-  --version                        Show version information
-  -?, -h, --help                   Show help and usage information
+  --offset <offset>                  Specify a zero-indexed logical core, or list of logical cores, and their PBO offset(s), in a fashion similar to taskset. e.g. 0:-10,1:5,2:-20,14:-25. These are the logical core IDs as they appear in your system, not the true IDs according to fused hardware disabled cores.
+  --disable-cores <disable-cores>    Specify a zero-indexed list of logical cores to disable. e.g. 0,1,4,7,12,15. This setting does not take into account any current core disablement. All cores you wish to disable must be specified. Any that are unspecified will be enabled. This option requires a reboot.
+  --enable-all-cores                 Enable all cores.
+  --get-offsets-terse                Print a list of all PBO offsets on logical cores in a simple, comma-separated format, without core identifiers. e.g. -15,0,2,-20.
+  --get-physical-cores               Print a list of physical cores, to find out which ones are disabled in <8-core-per-CCD SKUs.
+  --set-pbo-scalar <set-pbo-scalar>  Sets the PBO scalar. This is a whole number between 1 and 10.
+  --get-pbo-scalar                   Get the current PBO scalar.
+  --version                          Show version information
+  -?, -h, --help                     Show help and usage information
 ```
-
-# Note about compatiblity with 4/6/12-core skus
-I just realized that this won't work with these skus. ZenStates-Core does not implicitly compensate for the disabled cores when applying per-core PBO offsets. I need to update this to get the disabled core map and compensate for it myself.
