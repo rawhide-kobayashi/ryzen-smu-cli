@@ -153,15 +153,35 @@ namespace ryzen_smu_cli
         {
             Dictionary<int, int> mappedCores = [];
 
-            int logicalCoreIter = 0;
-            
-            for (var i = 0; i < ryzen.info.topology.physicalCores; i++)
+            int maxTries = 3;
+
+            for (int currentTry = 1; currentTry <= maxTries; currentTry++)
             {
-                int mapIndex = i < 8 ? 0 : 1;
-                if (ryzen.GetPsmMarginSingleCore((uint)(((mapIndex << 8) | ((i % 8) & 0xF)) << 20)) != null)
+                mappedCores.Clear();
+                int logicalCoreIter = 0;
+
+                for (var i = 0; i < ryzen.info.topology.physicalCores; i++)
                 {
-                    mappedCores.Add(logicalCoreIter, i);
-                    logicalCoreIter += 1;
+                    int mapIndex = i < 8 ? 0 : 1;
+                    if (ryzen.GetPsmMarginSingleCore((uint) (((mapIndex << 8) | ((i % 8) & 0xF)) << 20)) != null)
+                    {
+                        mappedCores.Add(logicalCoreIter, i);
+                        logicalCoreIter++;
+                    }
+                }
+
+
+                // The mapped cores should match the amount of physical cores
+                if (mappedCores.Count == ryzen.info.topology.cores)
+                {
+                    break;
+                }
+
+                // Something weird is happening if we cannot find the logical cores for all the physical ones even after three attempts
+                if (currentTry >= maxTries)
+                {
+                    Console.Error.WriteLine($"Did not find the expected amount of cores for mapping ({ryzen.info.topology.cores} expected but found only {mappedCores.Count})!");
+                    Environment.Exit(8);
                 }
             }
 
@@ -242,7 +262,8 @@ namespace ryzen_smu_cli
                 Console.Error.WriteLine("You have attempted to enable PBO offsets on a CPU that does not support them.");
                 Environment.Exit(3);
             }
-                
+
+
             string validArgFormat = @"^(-?\d{1,2}(,-?\d{1,2})*|\d{1,2}:-?\d{1,2}(,\d{1,2}:-?\d{1,2})*)$";
 
             if (!Regex.IsMatch(offsetArgs, validArgFormat))
@@ -261,7 +282,7 @@ namespace ryzen_smu_cli
             }
 
 
-            for (int i = 0; i < arg.Length; i++) 
+            for (int i = 0; i < arg.Length; i++)
             {
                 // Magic numbers from SMUDebugTool
                 // This does some bitshifting calculations to get the mask for individual cores for chips with up to two CCDs
