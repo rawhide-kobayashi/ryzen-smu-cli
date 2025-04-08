@@ -28,7 +28,6 @@ namespace ryzen_smu_cli
                 Console.Error.WriteLine("If the previous message was unclear, for some reason, ZenStates-Core failed to initialize an instance of the CPU control object.");
                 Environment.Exit(2);
             }
-
             mappedCores = MapLogicalCoresToPhysical();
         }
 
@@ -45,12 +44,6 @@ namespace ryzen_smu_cli
 
         static int Main(string[] args)
         {
-            if (!IsAdministrator())
-            {
-                Console.Error.WriteLine("This application must be run as an administrator.");
-                Environment.Exit(1);
-            }
-
             var rootCommand = new RootCommand("A CLI for the Ryzen SMU.");
 
             var pboOffset = new Option<string>("--offset", "Specify a zero-indexed logical core, or list of logical cores, and their PBO offset(s), in a fashion similar to taskset. e.g. 0:-10,1:5,2:-20,14:-25. These are the logical core IDs as they appear in your system, not the true IDs according to fused hardware disabled cores. Alternatively, you may supply a simpler comma-separated list of offset values - e.g. 0,-14,-30,5,-10,-22 - but, obviously, this can only set the value on up to X core that you define.");
@@ -91,7 +84,7 @@ namespace ryzen_smu_cli
                         int mapIndex = i < 8 ? 0 : 1;
                         try
                         {
-                            offsetLine += Convert.ToDecimal((int)ryzen.GetPsmMarginSingleCore((uint)(((mapIndex << 8) | ((mappedCores[i] % 8) & 0xF)) << 20)));
+                            offsetLine += Convert.ToDecimal((int)ryzen.GetPsmMarginSingleCore((uint)(((mapIndex << 8) | ((mappedCores[i] % 8) & 0xF)) << 20))!);
                             offsetLine += ",";
                         }
 
@@ -179,7 +172,7 @@ namespace ryzen_smu_cli
                 // ignored
             }
 
-            return instanceName;
+            return instanceName!;
         }
 
         private static void PopulateWmiFunctions()
@@ -268,18 +261,18 @@ namespace ryzen_smu_cli
                 // Support for threadrippers/epyc is theoretically available, if the calculations were expanded, but are untested
                 try
                 {
-                    int mapIndex = mappedCores[i] < 8 ? 0 : 1;
-
                     if (arg[i].Contains(':'))
                     {
                         int core = Convert.ToInt32(arg[i].Split(':')[0]);
                         int offset = Convert.ToInt32(arg[i].Split(':')[1]);
+                        int mapIndex = mappedCores[core] < 8 ? 0 : 1;
                         ryzen.SetPsmMarginSingleCore((uint)(((mapIndex << 8) | mappedCores[core] % 8 & 0xF) << 20), offset);
                         Console.WriteLine($"Set logical core {core}, physical core {mappedCores[core]} offset to {offset}!");
                     }
 
                     else
                     {
+                        int mapIndex = mappedCores[i] < 8 ? 0 : 1;
                         ryzen.SetPsmMarginSingleCore((uint)(((mapIndex << 8) | mappedCores[i] % 8 & 0xF) << 20), Convert.ToInt32(arg[i]));
                         Console.WriteLine($"Set logical core {i}, physical core {mappedCores[i]} offset to {arg[i]}!");
                     }
@@ -327,7 +320,7 @@ namespace ryzen_smu_cli
                 // Unreadable garbage... But it's my unreadable garbage. It just prints the bitmaps in the expected,
                 // human order.
                 Console.WriteLine($"New core disablement bitmap for CCD{i} (reversed lower half): {new string([.. Convert.ToString((int)(ccds[i] & 0xFF), 2).PadLeft(8, '0').Reverse()])}");
-                WMI.RunCommand(classInstance, cmdItem.value, ccds[i]);
+                WMI.RunCommand(classInstance!, cmdItem.value, ccds[i]);
             }
         }
 
