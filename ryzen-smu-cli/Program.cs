@@ -14,7 +14,7 @@ namespace ryzen_smu_cli
         {
             if (!IsAdministrator())
             {
-                Console.WriteLine("This application must be run as an administrator.");
+                Console.Error.WriteLine("This application must be run as an administrator.");
                 Environment.Exit(1);
             }
 
@@ -24,9 +24,9 @@ namespace ryzen_smu_cli
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error: {ex.Message}");
-                Console.WriteLine("If the previous message was unclear, for some reason, ZenStates-Core failed to initialize an instance of the CPU control object.");
-                Environment.Exit(1);
+                Console.Error.WriteLine($"Error: {ex.Message}");
+                Console.Error.WriteLine("If the previous message was unclear, for some reason, ZenStates-Core failed to initialize an instance of the CPU control object.");
+                Environment.Exit(2);
             }
 
             mappedCores = MapLogicalCoresToPhysical();
@@ -47,7 +47,7 @@ namespace ryzen_smu_cli
         {
             if (!IsAdministrator())
             {
-                Console.WriteLine("This application must be run as an administrator.");
+                Console.Error.WriteLine("This application must be run as an administrator.");
                 Environment.Exit(1);
             }
 
@@ -153,15 +153,35 @@ namespace ryzen_smu_cli
         {
             Dictionary<int, int> mappedCores = [];
 
-            int logicalCoreIter = 0;
-            
-            for (var i = 0; i < ryzen.info.topology.physicalCores; i++)
+            int maxTries = 3;
+
+            for (int currentTry = 1; currentTry <= maxTries; currentTry++)
             {
-                int mapIndex = i < 8 ? 0 : 1;
-                if (ryzen.GetPsmMarginSingleCore((uint)(((mapIndex << 8) | ((i % 8) & 0xF)) << 20)) != null)
+                mappedCores.Clear();
+                int logicalCoreIter = 0;
+
+                for (var i = 0; i < ryzen.info.topology.physicalCores; i++)
                 {
-                    mappedCores.Add(logicalCoreIter, i);
-                    logicalCoreIter += 1;
+                    int mapIndex = i < 8 ? 0 : 1;
+                    if (ryzen.GetPsmMarginSingleCore((uint) (((mapIndex << 8) | ((i % 8) & 0xF)) << 20)) != null)
+                    {
+                        mappedCores.Add(logicalCoreIter, i);
+                        logicalCoreIter++;
+                    }
+                }
+
+
+                // The mapped cores should match the amount of physical cores
+                if (mappedCores.Count == ryzen.info.topology.cores)
+                {
+                    break;
+                }
+
+                // Something weird is happening if we cannot find the logical cores for all the physical ones even after three attempts
+                if (currentTry >= maxTries)
+                {
+                    Console.Error.WriteLine($"Did not find the expected amount of cores for mapping ({ryzen.info.topology.cores} expected but found only {mappedCores.Count})!");
+                    Environment.Exit(8);
                 }
             }
 
@@ -237,54 +257,61 @@ namespace ryzen_smu_cli
         private static void ApplyPBOOffset(string offsetArgs)
         {
             // This checks if the current SKU has a known register for writing PBO offsets
-            if (ryzen.smu.Rsmu.SMU_MSG_SetDldoPsmMargin != 0)
+            if (ryzen.smu.Rsmu.SMU_MSG_SetDldoPsmMargin == 0)
             {
-                string validArgFormat = @"^(-?\d{1,2}(,-?\d{1,2})*|\d{1,2}:-?\d{1,2}(,\d{1,2}:-?\d{1,2})*)$";
-
-                if (Regex.IsMatch(offsetArgs, validArgFormat))
-                {
-                    string[] arg = offsetArgs.Split(',');
-
-                    if (arg.Length <= mappedCores.Count)
-                    {
-                        for (int i = 0; i < arg.Length; i++) 
-                        {
-                            // Magic numbers from SMUDebugTool
-                            // This does some bitshifting calculations to get the mask for individual cores for chips with up to two CCDs
-                            // Support for threadrippers/epyc is theoretically available, if the calculations were expanded, but are untested
-                            try
-                            {
-                                int mapIndex = mappedCores[i] < 8 ? 0 : 1;
-
-                                if (arg[i].Contains(':'))
-                                {
-                                    int core = Convert.ToInt32(arg[i].Split(':')[0]);
-                                    int offset = Convert.ToInt32(arg[i].Split(':')[1]);
-                                    ryzen.SetPsmMarginSingleCore((uint)(((mapIndex << 8) | mappedCores[core] % 8 & 0xF) << 20), offset);
-                                    Console.WriteLine($"Set logical core {core}, physical core {mappedCores[core]} offset to {offset}!");
-                                }
-
-                                else
-                                {
-                                    ryzen.SetPsmMarginSingleCore((uint)(((mapIndex << 8) | mappedCores[i] % 8 & 0xF) << 20), Convert.ToInt32(arg[i]));
-                                    Console.WriteLine($"Set logical core {i}, physical core {mappedCores[i]} offset to {arg[i]}!");
-                                }
-                            }
-
-                            catch (KeyNotFoundException)
-                            {
-                                Console.WriteLine($"Tried to set an offset on logical core {Convert.ToInt32(arg[i].Split(':')[0])}, but there are only {mappedCores.Count} (zero-indexed, as a reminder) logical cores active in the system.");
-                            }
-                        }
-                    }
-
-                    else Console.WriteLine("Specified a greater number of offsets than logical cores active in the system. Please check and try again.");
-                }
-
-                else Console.WriteLine("Malformed input format for offsets. Please check and try again.");
+                Console.Error.WriteLine("You have attempted to enable PBO offsets on a CPU that does not support them.");
+                Environment.Exit(3);
             }
 
-            else Console.WriteLine("You have attempted to enable PBO offsets on a CPU that does not support them.");
+
+            string validArgFormat = @"^(-?\d{1,2}(,-?\d{1,2})*|\d{1,2}:-?\d{1,2}(,\d{1,2}:-?\d{1,2})*)$";
+
+            if (!Regex.IsMatch(offsetArgs, validArgFormat))
+            {
+                Console.Error.WriteLine("Malformed input format for offsets. Please check and try again.");
+                Environment.Exit(4);
+            }
+
+
+            string[] arg = offsetArgs.Split(',');
+
+            if (arg.Length > mappedCores.Count)
+            {
+                Console.Error.WriteLine("Specified a greater number of offsets than logical cores active in the system. Please check and try again.");
+                Environment.Exit(5);
+            }
+
+
+            for (int i = 0; i < arg.Length; i++)
+            {
+                // Magic numbers from SMUDebugTool
+                // This does some bitshifting calculations to get the mask for individual cores for chips with up to two CCDs
+                // Support for threadrippers/epyc is theoretically available, if the calculations were expanded, but are untested
+                try
+                {
+                    int mapIndex = mappedCores[i] < 8 ? 0 : 1;
+
+                    if (arg[i].Contains(':'))
+                    {
+                        int core = Convert.ToInt32(arg[i].Split(':')[0]);
+                        int offset = Convert.ToInt32(arg[i].Split(':')[1]);
+                        ryzen.SetPsmMarginSingleCore((uint)(((mapIndex << 8) | mappedCores[core] % 8 & 0xF) << 20), offset);
+                        Console.WriteLine($"Set logical core {core}, physical core {mappedCores[core]} offset to {offset}!");
+                    }
+
+                    else
+                    {
+                        ryzen.SetPsmMarginSingleCore((uint)(((mapIndex << 8) | mappedCores[i] % 8 & 0xF) << 20), Convert.ToInt32(arg[i]));
+                        Console.WriteLine($"Set logical core {i}, physical core {mappedCores[i]} offset to {arg[i]}!");
+                    }
+                }
+
+                catch (KeyNotFoundException)
+                {
+                    Console.Error.WriteLine($"Tried to set an offset on logical core {Convert.ToInt32(arg[i].Split(':')[0])}, but there are only {mappedCores.Count} (zero-indexed, as a reminder) logical cores active in the system.");
+                    Environment.Exit(6);
+                }
+            }
         }
 
         private static void ApplyDisableCores(string coreArgs = "Enable")
@@ -297,35 +324,32 @@ namespace ryzen_smu_cli
 
             var cmdItem = availableCommands.FirstOrDefault(item => item.text.Contains("Software Downcore Config"));
 
-            if (cmdItem != null)
-            {
-                for (int i = 0; i < ccds.Length; i++)
-                {
-                    if (coreArgs != "Enable")
-                    {
-                        int[] arg = [.. coreArgs.Split(',').Select(int.Parse)];
-
-                        for (int x = 0; x < 8; x++)
-                        {
-                            if (arg.Contains(x + (i * 8)))
-                            {
-                                ccds[i] = Utils.SetBits(ccds[i], x, 1, 1);
-                            }
-                        }
-                    }
-
-
-                    // Unreadable garbage... But it's my unreadable garbage. It just prints the bitmaps in the expected,
-                    // human order.
-                    Console.WriteLine($"New core disablement bitmap for CCD{i} (reversed lower half): {new string([.. Convert.ToString((int)(ccds[i] & 0xFF), 2).PadLeft(8, '0').Reverse()])}");
-                    WMI.RunCommand(classInstance, cmdItem.value, ccds[i]);
-                }
+            if ( cmdItem == null ) {
+                Console.Error.WriteLine("Something has gone terribly wrong, the downcore config option is not present.");
+                Environment.Exit(7);
             }
 
-            else
+            for (int i = 0; i < ccds.Length; i++)
             {
-                Console.WriteLine("Something has gone terribly wrong, the downcore config option is not present.");
-            }            
+                if (coreArgs != "Enable")
+                {
+                    int[] arg = [.. coreArgs.Split(',').Select(int.Parse)];
+
+                    for (int x = 0; x < 8; x++)
+                    {
+                        if (arg.Contains(x + (i * 8)))
+                        {
+                            ccds[i] = Utils.SetBits(ccds[i], x, 1, 1);
+                        }
+                    }
+                }
+
+
+                // Unreadable garbage... But it's my unreadable garbage. It just prints the bitmaps in the expected,
+                // human order.
+                Console.WriteLine($"New core disablement bitmap for CCD{i} (reversed lower half): {new string([.. Convert.ToString((int)(ccds[i] & 0xFF), 2).PadLeft(8, '0').Reverse()])}");
+                WMI.RunCommand(classInstance, cmdItem.value, ccds[i]);
+            }
         }
 
         private static bool IsAdministrator()

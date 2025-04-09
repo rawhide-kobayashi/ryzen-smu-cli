@@ -6,7 +6,7 @@
     <RootNamespace>ryzen_smu_cli</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Version>0.1.1</Version>
+    <Version>0.0.3</Version>
   </PropertyGroup>
 
   <PropertyGroup>
