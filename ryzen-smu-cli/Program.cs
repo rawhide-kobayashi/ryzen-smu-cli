@@ -84,9 +84,9 @@ namespace ryzen_smu_cli
                     {
                         int physicalCore = mappedCores[logicalCore];
                         int ccdIndex = (int)Math.Floor((double)(physicalCore / 8));
-                        int ccdBitmask = ccdIndex << 8;
+                        int ccdBitMask = ccdIndex << 8;
                         int coreNumOnCcd = physicalCore % 8;
-                        uint coreBitMask = (uint)((ccdBitmask | (coreNumOnCcd & 0xF)) << 20);
+                        uint coreBitMask = (uint)((ccdBitMask | (coreNumOnCcd & 0xF)) << 20);
 
                         try
                         {
