@@ -79,12 +79,18 @@ namespace ryzen_smu_cli
                     Console.WriteLine("Current PBO offsets:");
                     string offsetLine = "";
                     bool flagNotifyDisabledCCD = false;
-                    for (int i = 0; i < mappedCores.Count; i++)
+
+                    for (int logicalCore = 0; logicalCore < mappedCores.Count; logicalCore++)
                     {
-                        int mapIndex = i < 8 ? 0 : 1;
+                        int physicalCore = mappedCores[logicalCore];
+                        int ccdIndex = (int)Math.Floor((double)(physicalCore / 8));
+                        int ccdBitmask = ccdIndex << 8;
+                        int coreNumOnCcd = physicalCore % 8;
+                        uint coreBitMask = (uint)((ccdBitmask | (coreNumOnCcd & 0xF)) << 20);
+
                         try
                         {
-                            offsetLine += Convert.ToDecimal((int)ryzen.GetPsmMarginSingleCore((uint)(((mapIndex << 8) | ((mappedCores[i] % 8) & 0xF)) << 20))!);
+                            offsetLine += Convert.ToDecimal((int)ryzen.GetPsmMarginSingleCore(coreBitMask)!);
                             offsetLine += ",";
                         }
 
